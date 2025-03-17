@@ -1,6 +1,6 @@
 package org.example.repository;
 
-import org.example.dto.Limit;
+import org.example.Entity.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -13,8 +13,6 @@ import java.util.Optional;
 public interface LimitRepository extends JpaRepository<Limit,Long> {
 
     Optional<Limit> findTopByUserIdOrderByCreatedAtDesc(Long userId);
-
-    <S extends Limit> S save(S entity);
 
     void deleteByUserId(Long userId);
 

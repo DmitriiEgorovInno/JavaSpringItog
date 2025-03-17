@@ -15,6 +15,6 @@ spring:
 flyway:
   enabled: false
   baselineOnMigrate: true
-executor:
+limit:
   initial-user-limit: 10000
   reset-interval: 300000  #Имитация В 00.00 каждого дня лимит для всех пользователей должен быть сброшен (каждые 5 минут)

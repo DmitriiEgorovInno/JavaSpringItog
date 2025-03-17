@@ -1,6 +1,7 @@
 package org.example.controller;
 
-import org.example.dto.Limit;
+import org.example.Entity.Limit;
+import org.example.dto.LimitResponse;
 import org.example.service.LimitService;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,17 +17,20 @@ public class LimitController {
     }
 
     @GetMapping(value = "/limit/{userId}")
-    public Limit getLimitByUserId(@PathVariable("userId") Long userID){
-        return limitService.getLimitByUserId(userID);
+    public LimitResponse getLimitByUserId(@PathVariable("userId") Long userID){
+        Limit limit = limitService.getLimitByUserId(userID);
+        return new LimitResponse(limit);
     }
 
-    @PostMapping(value = "/reducelimit")
-    public Limit reduceUserLimit(@RequestParam("userId") Long userId, @RequestParam("sum")BigDecimal sum){
-        return limitService.reduceUserLimit(userId,sum);
+    @PostMapping(value = "/limit/reduce")
+    public LimitResponse reduceUserLimit(@RequestParam("userId") Long userId, @RequestParam("sum")BigDecimal sum){
+        Limit limit = limitService.reduceUserLimit(userId,sum);
+        return new LimitResponse(limit);
     }
 
-    @PostMapping("/restorelimit/{userId}")
-    public Limit restoreUserLimit(@PathVariable("userId") Long userId){
-        return limitService.restoreUserLimit(userId);
+    @PostMapping("/limit/restore/{userId}")
+    public LimitResponse restoreUserLimit(@PathVariable("userId") Long userId){
+        Limit limit = limitService.restoreUserLimit(userId);
+        return new LimitResponse(limit);
     }
 }
