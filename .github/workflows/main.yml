@@ -1,0 +1,124 @@
+stages:
+  - stage_build
+  - stage_test
+  - stage_deploy_dev
+  - stage_deploy_prd
+
+variables:
+  OWNER_NAME: "Leonid Badeev"
+  CICD_VERSION: "v1.0"
+  LOG_FILE_NAME: "log.txt"
+
+# 0) Глобальный базовый образ для ВСЕХ job
+image: registry.gitlab.com/gitlab-org/cloud-deploy/aws-base:latest
+
+# 0.1) Дефолтные артефакты: сохраняем лог после КАЖДОЙ job
+# Важно: в большинстве версий GitLab переменные внутри artifacts.paths НЕ разворачиваются.
+# Поэтому используем прямой путь "log.txt".
+default:
+  artifacts:
+    paths:
+      - "log.txt"
+    expire_in: "1 week"
+    when: always
+
+# 1) Build — создаёт log.txt
+build_job:
+  stage: stage_build
+  script: |
+    echo "---Build Started---"        | tee    "${LOG_FILE_NAME}"
+    echo "Owner:  ${OWNER_NAME}"      | tee -a "${LOG_FILE_NAME}"
+    echo "Ver:    ${CICD_VERSION}"    | tee -a "${LOG_FILE_NAME}"
+    echo "Building..."                | tee -a "${LOG_FILE_NAME}"
+    echo "---Build Completed---"      | tee -a "${LOG_FILE_NAME}"
+    echo "=== log after Build ==="
+    wc -c "${LOG_FILE_NAME}" | awk '{print "size(bytes):",$1}'
+    cat -n "${LOG_FILE_NAME}"
+
+# 2) Test 1 — ПОСЛЕ Build (в той же стадии тестов пойдём по очереди через needs)
+test_job1:
+  stage: stage_test
+  needs:
+    - job: build_job
+      artifacts: true
+  script: |
+    test -f "${LOG_FILE_NAME}"
+    echo "---Test1 Started---"   | tee -a "${LOG_FILE_NAME}"
+    echo "Testing1..."           | tee -a "${LOG_FILE_NAME}"
+    echo "---Test1 Completed---" | tee -a "${LOG_FILE_NAME}"
+    echo "=== log after Test1 ==="
+    wc -c "${LOG_FILE_NAME}" | awk '{print "size(bytes):",$1}'
+    cat -n "${LOG_FILE_NAME}"
+
+# 3) Test 2 — ПОСЛЕ Test1. Есть строка для умышленного сбоя (раскомментируй на демо)
+test_job2:
+  stage: stage_test
+  needs:
+    - job: test_job1
+      artifacts: true
+  script: |
+    test -f "${LOG_FILE_NAME}"
+    echo "---Test2 Started---"   | tee -a "${LOG_FILE_NAME}"
+    echo "Testing2..."           | tee -a "${LOG_FILE_NAME}"
+    # ======= ДЛЯ ДЕМО ОШИБКИ (раскомментируй одну строку ниже) =======
+    # test -f "__THIS_FILE_DOES_NOT_EXIST__.txt" || { echo "Missing demo file -> failing"; exit 1; }
+    # ================================================================
+    echo "---Test2 Completed---" | tee -a "${LOG_FILE_NAME}"
+    echo "=== log after Test2 ==="
+    wc -c "${LOG_FILE_NAME}" | awk '{print "size(bytes):",$1}'
+    cat -n "${LOG_FILE_NAME}"
+
+# 4) Test 3 — ПОСЛЕ Test2
+test_job3:
+  stage: stage_test
+  needs:
+    - job: test_job2
+      artifacts: true
+  script: |
+    test -f "${LOG_FILE_NAME}"
+    echo "---Test3 Started---"   | tee -a "${LOG_FILE_NAME}"
+    echo "Testing3..."           | tee -a "${LOG_FILE_NAME}"
+    echo "---Test3 Completed---" | tee -a "${LOG_FILE_NAME}"
+    echo "=== log after Test3 ==="
+    wc -c "${LOG_FILE_NAME}" | awk '{print "size(bytes):",$1}'
+    cat -n "${LOG_FILE_NAME}"
+
+# 5) Deploy DEV — авто после тестов
+deploy_to_dev_job:
+  stage: stage_deploy_dev
+  needs:
+    - job: test_job3
+      artifacts: true
+  environment:
+    name: dev
+  script: |
+    test -f "${LOG_FILE_NAME}"
+    echo "---Deploy to DEV Started---"   | tee -a "${LOG_FILE_NAME}"
+    echo "Deploying to DEV..."           | tee -a "${LOG_FILE_NAME}"
+    echo "---Deploy to DEV Completed---" | tee -a "${LOG_FILE_NAME}"
+    echo "========= MERGED LOG (DEV) ========="
+    wc -c "${LOG_FILE_NAME}" | awk '{print "size(bytes):",$1}'
+    cat -n "${LOG_FILE_NAME}"
+
+# 6) Deploy PROD — только вручную, после DEV; сериализуем деплои в прод
+deploy_to_prd_job:
+  stage: stage_deploy_prd
+  needs:
+    - job: deploy_to_dev_job
+      artifacts: true
+  environment:
+    name: production
+  when: manual
+  allow_failure: false
+  resource_group: prod            # не пускает параллельные выкаты в прод
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'  # запуск только из main
+    - when: never
+  script: |
+    test -f "${LOG_FILE_NAME}"
+    echo "---Deploy to PROD Started---"   | tee -a "${LOG_FILE_NAME}"
+    echo "Deploying to PROD..."           | tee -a "${LOG_FILE_NAME}"
+    echo "---Deploy to PROD Completed---" | tee -a "${LOG_FILE_NAME}"
+    echo "========= MERGED LOG (PROD) ========="
+    wc -c "${LOG_FILE_NAME}" | awk '{print "size(bytes):",$1}'
+    cat -n "${LOG_FILE_NAME}"
